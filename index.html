@@ -1,1 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Debt & Credit Vault</title>
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:Arial; text-align:center; }
+    h1 { color:#9b59b6; }
+    .dashboard { display:flex; justify-content:center; gap:20px; margin:20px; }
+    .box { background:#2c2c2c; padding:15px; border-radius:8px; width:180px; }
+    button { background:#9b59b6; color:#fff; border:none; padding:10px 15px; border-radius:5px; cursor:pointer; margin:5px; }
+    input, select { padding:8px; margin:5px; border-radius:5px; border:none; }
+    table { width:90%; margin:20px auto; border-collapse:collapse; }
+    th, td { border:1px solid #444; padding:8px; }
+    th { background:#333; }
+    .net { margin-top:30px; font-size:18px; color:#f1c40f; }
+    .filters { margin:15px; }
+  </style>
+</head>
+<body>
+  <h1>Debt & Credit Vault</h1>
 
+  <!-- Dashboard -->
+  <div class="dashboard">
+    <div class="box"><h3>Total Debt</h3><p id="totalDebt">₹0</p></div>
+    <div class="box"><h3>Total Credit</h3><p id="totalCredit">₹0</p></div>
+    <div class="box"><h3>Entries Added</h3><p id="totalEntries">0</p></div>
+    <div class="box"><h3>Pending</h3><p id="pendingCount">0</p></div>
+    <div class="box"><h3>Paid</h3><p id="paidCount">0</p></div>
+  </div>
+
+  <!-- Add Entry -->
+  <div>
+    <select id="type">
+      <option value="Debt">Debt (I owe)</option>
+      <option value="Credit">Credit (They owe me)</option>
+    </select>
+    <input type="text" id="name" placeholder="Person/Entity">
+    <input type="number" id="amount" placeholder="Amount">
+    <input type="text" id="note" placeholder="Note/Due date">
+    <button onclick="addEntry()">+ Add Entry</button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <button onclick="filterEntries('All')">All</button>
+    <button onclick="filterEntries('Debt')">Debts</button>
+    <button onclick="filterEntries('Credit')">Credits</button>
+    <button onclick="filterEntries('Pending')">Pending</button>
+    <button onclick="filterEntries('Paid')">Paid</button>
+  </div>
+
+  <!-- Entries Table -->
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Name</th><th>Amount</th><th>Note</th><th>Status</th><th>Action</th></tr>
+    </thead>
+    <tbody id="entries"></tbody>
+  </table>
+
+  <!-- Net Balance -->
+  <div class="net">
+    Net Balance (Credit - Debt): <span id="netBalance">₹0</span>
+  </div>
+
+<script>
+  let data = JSON.parse(localStorage.getItem("vaultData") || "[]");
+  let currentFilter = "All";
+
+  function render() {
+    let debt = 0, credit = 0, pending = 0, paid = 0;
+    let rows = "";
+    data.forEach((e,i)=>{
+      if(e.type==="Debt") debt += e.amount;
+      else credit += e.amount;
+      if(e.status==="Pending") pending++;
+      else paid++;
+
+      if(currentFilter==="All" || e.type===currentFilter || e.status===currentFilter){
+        rows += `<tr>
+          <td>${e.type}</td>
+          <td>${e.name}</td>
+          <td>₹${e.amount}</td>
+          <td>${e.note}</td>
+          <td>${e.status}</td>
+          <td>
+            <button onclick="markPaid(${i})">Mark Paid</button>
+            <button onclick="deleteEntry(${i})">Delete</button>
+          </td>
+        </tr>`;
+      }
+    });
+    document.getElementById("entries").innerHTML = rows;
+    document.getElementById("totalDebt").innerText = "₹"+debt;
+    document.getElementById("totalCredit").innerText = "₹"+credit;
+    document.getElementById("netBalance").innerText = "₹"+(credit-debt);
+    document.getElementById("totalEntries").innerText = data.length;
+    document.getElementById("pendingCount").innerText = pending;
+    document.getElementById("paidCount").innerText = paid;
+    localStorage.setItem("vaultData", JSON.stringify(data));
+  }
+
+  function addEntry() {
+    let type = document.getElementById("type").value;
+    let name = document.getElementById("name").value;
+    let amount = parseFloat(document.getElementById("amount").value);
+    let note = document.getElementById("note").value;
+    if(!name || !amount) return alert("Enter name and amount!");
+    data.push({type,name,amount,note,status:"Pending"});
+    render();
+  }
+
+  function markPaid(i) {
+    data[i].status = "Paid";
+    render();
+  }
+
+  function deleteEntry(i) {
+    if(confirm("Delete this entry?")) {
+      data.splice(i,1);
+      render();
+    }
+  }
+
+  function filterEntries(f) {
+    currentFilter = f;
+    render();
+  }
+
+  render();
+</script>
+</body>
+</html>
