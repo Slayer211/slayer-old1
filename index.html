@@ -12,9 +12,10 @@
     input { padding:8px; margin:5px; border-radius:5px; border:1px solid #ccc; }
     button { background:#3498db; color:#fff; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; margin:5px; }
     .person { background:#fff; margin:15px auto; padding:15px; border-radius:10px; width:90%; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
-    .summary { font-weight:bold; margin-bottom:10px; }
-    .transactions { margin:10px 0; }
-    .transactions div { background:#ecf0f1; margin:3px; padding:5px; border-radius:5px; }
+    .summary { font-weight:bold; margin-bottom:10px; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+    th { background:#ecf0f1; }
     .actions button { margin:3px; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; }
     .add { background:#27ae60; }
     .subtract { background:#e74c3c; }
@@ -32,10 +33,12 @@
     <div class="box"><h3>Net Balance</h3><p id="netBalance">₹0</p></div>
   </div>
 
-  <!-- Add Person -->
+  <!-- Add Person + Import/Export -->
   <div class="newPerson">
     <input type="text" id="personName" placeholder="Person Name">
     <button onclick="addPerson()">+ Add Person</button>
+    <button onclick="exportVault()">Export JSON</button>
+    <input type="file" id="importFile" onchange="importVault(event)">
   </div>
 
   <!-- Person List -->
@@ -47,7 +50,7 @@
   function addPerson(){
     let name = document.getElementById("personName").value;
     if(!name) return alert("Enter person name!");
-    people.push({name, transactions:[], status:"Active"});
+    people.push({name, transactions:[], status:"Active", expanded:false});
     render();
   }
 
@@ -59,7 +62,6 @@
 
   function markPaid(i){
     people[i].status="Paid";
-    people[i].transactions.push({type:"Settlement",amount:0,date:new Date().toLocaleString()});
     render();
   }
 
@@ -70,22 +72,35 @@
     }
   }
 
+  function toggleExpand(i){
+    people[i].expanded=!people[i].expanded;
+    render();
+  }
+
   function render(){
     let creditTotal=0, debitTotal=0;
     let html="";
     people.forEach((p,i)=>{
       let balance=0;
-      let txHTML="";
+      let credits=[], debits=[];
       p.transactions.forEach(t=>{
-        if(t.type==="Credit"){ balance+=t.amount; creditTotal+=t.amount; }
-        else if(t.type==="Debit"){ balance-=t.amount; debitTotal+=t.amount; }
-        txHTML+=`<div>${t.type} ₹${t.amount} (${t.date})</div>`;
+        if(t.type==="Credit"){ balance+=t.amount; creditTotal+=t.amount; credits.push(t); }
+        else if(t.type==="Debit"){ balance-=t.amount; debitTotal+=t.amount; debits.push(t); }
       });
-      let summary=`${p.transactions.length} active · ₹${balance} balance`;
+      let summary=`${p.transactions.length} transactions · ₹${balance} balance`;
       html+=`<div class="person">
         <h3>${p.name}</h3>
-        <div class="summary">${summary} — Status: ${p.status}</div>
-        <div class="transactions">${txHTML || "No transactions yet"}</div>
+        <div class="summary" onclick="toggleExpand(${i})">${summary} — Status: ${p.status} (click to expand)</div>
+        ${p.expanded?`
+          <table>
+            <thead><tr><th colspan="3">Credits</th></tr><tr><th>Amount</th><th>Date</th><th>Type</th></tr></thead>
+            <tbody>${credits.map(c=>`<tr><td>₹${c.amount}</td><td>${c.date}</td><td>${c.type}</td></tr>`).join("")||"<tr><td colspan=3>No credits</td></tr>"}</tbody>
+          </table>
+          <table>
+            <thead><tr><th colspan="3">Debits</th></tr><tr><th>Amount</th><th>Date</th><th>Type</th></tr></thead>
+            <tbody>${debits.map(d=>`<tr><td>₹${d.amount}</td><td>${d.date}</td><td>${d.type}</td></tr>`).join("")||"<tr><td colspan=3>No debits</td></tr>"}</tbody>
+          </table>
+        `:""}
         <div class="actions">
           <button class="add" onclick="addTransaction(${i},'Credit',promptAmount())">Add Credit</button>
           <button class="subtract" onclick="addTransaction(${i},'Debit',promptAmount())">Add Debit</button>
@@ -104,6 +119,30 @@
   function promptAmount(){
     let val = parseFloat(prompt("Enter amount:"));
     return isNaN(val)?0:val;
+  }
+
+  function exportVault(){
+    let blob = new Blob([JSON.stringify(people)],{type:"application/json"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href=url;
+    a.download="vault.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importVault(event){
+    let file = event.target.files[0];
+    if(!file) return;
+    let reader = new FileReader();
+    reader.onload=function(e){
+      try{
+        people=JSON.parse(e.target.result);
+        render();
+        alert("Vault imported!");
+      }catch(err){ alert("Invalid JSON file."); }
+    };
+    reader.readAsText(file);
   }
 
   render();
