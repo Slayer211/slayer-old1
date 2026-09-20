@@ -8,16 +8,10 @@
     h1 { text-align:center; padding:20px; color:#2c3e50; }
     .dashboard { display:flex; justify-content:center; gap:20px; margin:20px; flex-wrap:wrap; }
     .box { background:#fff; padding:15px; border-radius:10px; width:200px; text-align:center; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
-    .box h3 { margin:0; color:#555; }
-    .box p { font-size:18px; font-weight:bold; }
-    .creditBox { border-top:6px solid #27ae60; }
-    .debitBox { border-top:6px solid #e67e22; }
-    .netBox { border-top:6px solid #9b59b6; }
     .newPerson { text-align:center; margin:20px; }
     input { padding:8px; margin:5px; border-radius:5px; border:1px solid #ccc; }
     button { background:#3498db; color:#fff; border:none; padding:8px 15px; border-radius:5px; cursor:pointer; margin:5px; }
     .person { background:#fff; margin:15px auto; padding:15px; border-radius:10px; width:80%; box-shadow:0 4px 8px rgba(0,0,0,0.1); }
-    .person h3 { margin:0; }
     .credit { border-left:6px solid #27ae60; }
     .debit { border-left:6px solid #e74c3c; }
     .actions button { margin:5px; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; }
@@ -25,6 +19,7 @@
     .subtract { background:#e74c3c; color:#fff; }
     .history { margin-top:10px; font-size:14px; color:#555; text-align:left; background:#f9f9f9; padding:8px; border-radius:5px; }
     .history div:nth-child(odd){ background:#ecf0f1; padding:3px; border-radius:3px; }
+    .lock { text-align:center; margin:20px; }
   </style>
 </head>
 <body>
@@ -32,15 +27,24 @@
 
   <!-- Dashboard -->
   <div class="dashboard">
-    <div class="box creditBox"><h3>Total Credit</h3><p id="totalCredit">₹0</p></div>
-    <div class="box debitBox"><h3>Total Debit</h3><p id="totalDebit">₹0</p></div>
-    <div class="box netBox"><h3>Net Balance</h3><p id="netBalance">₹0</p></div>
+    <div class="box"><h3>Total Credit</h3><p id="totalCredit">₹0</p></div>
+    <div class="box"><h3>Total Debit</h3><p id="totalDebit">₹0</p></div>
+    <div class="box"><h3>Net Balance</h3><p id="netBalance">₹0</p></div>
   </div>
 
   <!-- Add Person -->
   <div class="newPerson">
     <input type="text" id="personName" placeholder="Person Name">
     <button onclick="addPerson()">+ Add Person</button>
+    <button onclick="exportVault()">Export JSON</button>
+    <input type="file" id="importFile" onchange="importVault(event)">
+  </div>
+
+  <!-- Optional Lock -->
+  <div class="lock">
+    <input type="password" id="paraphrase" placeholder="Paraphrase">
+    <button onclick="lockVault()">Lock Vault</button>
+    <button onclick="unlockVault()">Unlock Vault</button>
   </div>
 
   <!-- Person List -->
@@ -48,6 +52,7 @@
 
 <script>
   let people = JSON.parse(localStorage.getItem("vaultPeople") || "[]");
+  let locked = false;
 
   function addPerson(){
     let name = document.getElementById("personName").value;
@@ -63,6 +68,7 @@
   }
 
   function render(){
+    if(locked){ document.getElementById("personList").innerHTML="<p style='text-align:center;'>Vault is locked</p>"; return; }
     let creditTotal=0, debitTotal=0;
     let html="";
     people.forEach((p,i)=>{
@@ -93,6 +99,45 @@
   function promptAmount(){
     let val = parseFloat(prompt("Enter amount:"));
     return isNaN(val)?0:val;
+  }
+
+  function exportVault(){
+    let blob = new Blob([JSON.stringify(people)],{type:"application/json"});
+    let url = URL.createObjectURL(blob);
+    let a = document.createElement("a");
+    a.href=url;
+    a.download="vault.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importVault(event){
+    let file = event.target.files[0];
+    if(!file) return;
+    let reader = new FileReader();
+    reader.onload=function(e){
+      try{
+        people=JSON.parse(e.target.result);
+        render();
+        alert("Vault imported!");
+      }catch(err){ alert("Invalid JSON file."); }
+    };
+    reader.readAsText(file);
+  }
+
+  function lockVault(){
+    let key = document.getElementById("paraphrase").value;
+    if(!key) return alert("Enter paraphrase!");
+    locked=true;
+    localStorage.setItem("vaultLock",key);
+    render();
+  }
+
+  function unlockVault(){
+    let key = document.getElementById("paraphrase").value;
+    let savedKey = localStorage.getItem("vaultLock");
+    if(key===savedKey){ locked=false; render(); alert("Vault unlocked!"); }
+    else alert("Wrong paraphrase!");
   }
 
   render();
